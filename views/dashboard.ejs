@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lighthouse Metrics Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            text-align: center; /* 페이지 내 모든 텍스트를 중앙 정렬 */
+        }
+
+        .container {
+            width: 80%;
+            margin: 20px auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            text-align: left; /* 컨텐츠는 왼쪽 정렬 */
+        }
+
+        h1 {
+            color: #444;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .search-container, .button-container {
+            text-align: center; /* 검색란과 버튼 중앙 정렬 */
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 300px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .metrics-container {
+            width: 100%;
+            margin: 20px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin: 0 auto; /* 테이블 중앙 정렬 */
+        }
+
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: center; /* 숫자 및 텍스트 중앙 정렬 */
+        }
+
+        th {
+            background: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f4f4f4;
+        }
+
+        tr:hover {
+            background-color: #e2e2e2;
+        }
+
+        .button-container {
+            margin: 20px 0;
+        }
+
+        .button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.3s ease, transform 0.2s ease;
+        }
+
+        .button:hover {
+            background-color: #388E3C;
+            transform: scale(1.05);
+        }
+
+        .increase {
+            color: red;
+            font-weight: bold;
+        }
+
+        .decrease {
+            color: blue;
+            font-weight: bold;
+        }
+
+        .warning {
+            color: orange;
+            font-weight: bold;
+        }
+
+        .no-change {
+            color: gray;
+            font-weight: normal;
+        }
+
+        .footer {
+            margin-top: 40px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .url-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 20px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Lighthouse Metrics Dashboard</h1>
+        <div class="search-container">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search by URL, Title, FCP, LCP, or FMP..." onkeyup="searchTable()">
+        </div>
+        <div class="button-container">
+            <button class="button" onclick="downloadCSV()">Download CSV</button>
+        </div>
+        <div class="metrics-container">
+            <% Object.keys(metricsByUrl).forEach(url => { %>
+                <div class="url-header"><%= metricsByUrl[url][0].title %> (URL: <%= url %>)</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>First Contentful Paint (FCP)</th>
+                            <th>Largest Contentful Paint (LCP)</th>
+                            <th>First Meaningful Paint (FMP)</th>
+                            <th>Timestamp</th>
+                            <th>FCP Change</th>
+                            <th>LCP Change</th>
+                            <th>FMP Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% let sequence = 1; %>
+                        <% const metrics = metricsByUrl[url]; %>
+                        <% metrics.forEach((metric, index) => { %>
+                            <% const previousMetric = index > 0 ? metrics[index - 1] : null; %>
+                            <% let fcpChange = 'N/A'; %>
+                            <% let lcpChange = 'N/A'; %>
+                            <% let fmpChange = 'N/A'; %>
+                            <% let fcpAdjustment = url.includes('amoremall') ? 4000 : 0; %>
+                            <% let adjustedFcp = (metric.fcp - fcpAdjustment).toFixed(2); %>
+                            <% let adjustedLcp = (metric.lcp - fcpAdjustment).toFixed(2); %>
+                            <% if (previousMetric) { %>
+                                <% let previousFcpAdjustment = url.includes('amoremall') ? 4000 : 0; %>
+                                <% let previousAdjustedFcp = (previousMetric.fcp - previousFcpAdjustment).toFixed(2); %>
+                                <% let previousAdjustedLcp = (previousMetric.lcp - previousFcpAdjustment).toFixed(2); %>
+                                <% fcpChange = (adjustedFcp - previousAdjustedFcp).toFixed(2); %>
+                                <% lcpChange = (adjustedLcp - previousAdjustedLcp).toFixed(2); %>
+                                <% fmpChange = metric.fmp !== 'N/A' && previousMetric.fmp !== 'N/A' ? (metric.fmp - previousMetric.fmp).toFixed(2) : 'N/A'; %>
+                            <% } %>
+                            <tr data-title="<%= metrics[0].title %>">
+                                <td><%= sequence++ %></td>
+                                <td><%= adjustedFcp %></td>
+                                <td><%= adjustedLcp %></td>
+                                <td><%= metric.fmp !== 'N/A' ? metric.fmp.toFixed(2) : 'N/A' %></td>
+                                <td><%= new Date(metric.timestamp).toLocaleString() %></td>
+                                <td class="<%= fcpChange === 'N/A' ? 'no-change' : (fcpChange > 0 ? 'increase' : 'decrease') %>">
+                                    <%= fcpChange === 'N/A' ? 'N/A' : (fcpChange > 0 ? '+' + fcpChange : fcpChange) %>
+                                </td>
+                                <td class="<%= lcpChange === 'N/A' ? 'no-change' : (lcpChange > 0 ? 'increase' : 'decrease') %>">
+                                    <%= lcpChange === 'N/A' ? 'N/A' : (lcpChange > 0 ? '+' + lcpChange : lcpChange) %>
+                                </td>
+                                <td class="<%= fmpChange === 'N/A' ? 'no-change' : (fmpChange > 0 ? 'increase' : 'decrease') %>">
+                                    <%= fmpChange === 'N/A' ? 'N/A' : (fmpChange > 0 ? '+' + fmpChange : fmpChange) %>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            <% }); %>
+        </div>
+        <div class="footer">
+            Created by 최인태
+        </div>
+    </div>
+    <script>
+        function searchTable() {
+            const input = document.getElementById('searchInput').value.toLowerCase();
+            const tables = document.querySelectorAll('.metrics-container table');
+
+            tables.forEach(table => {
+                const tr = table.getElementsByTagName('tr');
+                for (let i = 1; i < tr.length; i++) {
+                    const td = tr[i].getElementsByTagName('td');
+                    const title = tr[i].getAttribute('data-title').toLowerCase();
+                    let found = false;
+
+                    for (let j = 0; j < td.length; j++) {
+                        if (td[j]) {
+                            const textValue = td[j].textContent || td[j].innerText;
+                            if (textValue.toLowerCase().indexOf(input) > -1 || title.indexOf(input) > -1) {
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    tr[i].style.display = found ? '' : 'none';
+                }
+            });
+        }
+
+        function downloadCSV() {
+            // 현재 날짜와 시간 가져오기
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0'); // 월은 0부터 시작하므로 1을 더함
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const timestamp = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+
+            // 테이블의 모든 행을 가져옵니다.
+            const rows = [
+                ['#', 'Title', 'First Contentful Paint (FCP)', 'Largest Contentful Paint (LCP)', 'First Meaningful Paint (FMP)', 'Timestamp', 'FCP Change', 'LCP Change', 'FMP Change'],
+                ...Array.from(document.querySelectorAll('tbody tr')).map(tr => {
+                    const cells = Array.from(tr.getElementsByTagName('td'));
+                    const title = tr.getAttribute('data-title') || '';
+                    return [
+                        cells[0]?.textContent.trim() || '', // #
+                        title, // Title
+                        cells[1]?.textContent.trim() || '', // First Contentful Paint (FCP)
+                        cells[2]?.textContent.trim() || '', // Largest Contentful Paint (LCP)
+                        cells[3]?.textContent.trim() || '', // First Meaningful Paint (FMP)
+                        cells[4]?.textContent.trim() || '', // Timestamp
+                        cells[5]?.textContent.trim() || '', // FCP Change
+                        cells[6]?.textContent.trim() || '', // LCP Change
+                        cells[7]?.textContent.trim() || '', // FMP Change
+                    ];
+                })
+            ];
+
+            // CSV 문자열 생성
+            const csvContent = rows.map(row => row.join(",")).join("\n");
+
+            // CSV 데이터를 데이터 URI 형식으로 변환
+            const encodedUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`;
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `lighthouse_metrics_${timestamp}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

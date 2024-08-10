@@ -1,0 +1,20 @@
+{
+  "name": "lighthouse-dashboard",
+  "version": "1.0.0",
+  "description": "A simple dashboard for Lighthouse metrics",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "run-lighthouse": "node lighthouse.js"
+  },
+  "dependencies": {
+    "chrome-launcher": "^0.15.2",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "lighthouse": "^11.7.1",
+    "lowdb": "^5.1.0",
+    "mongoose": "^8.5.2",
+    "node-cron": "^3.0.3"
+  }
+}
