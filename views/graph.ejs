@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lighthouse Metrics Graph</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            text-align: center;
+        }
+
+        .container {
+            width: 80%;
+            margin: 20px auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            position: relative; /* Ensure .info is positioned relative to .container */
+        }
+
+        h1 {
+            color: #444;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .tabs button {
+            padding: 10px 15px;
+            margin: 0 5px;
+            border: none;
+            border-bottom: 3px solid transparent;
+            background-color: transparent;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .tabs button.active {
+            border-bottom: 3px solid #007bff;
+            color: #007bff;
+        }
+
+        canvas {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            margin: 0 auto; /* Center the canvas */
+        }
+
+        .info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 16px;
+            color: #666;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 10; /* Ensure the info box is above other elements */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="info">
+            <p>개발: 최인태</p>
+            <p>업데이트 일자: <span id="updateDate"></span></p>
+        </div>
+        <h1>Lighthouse Metrics Graph</h1>
+        <div class="tabs" id="dateTabs">
+            <!-- Date tabs will be populated dynamically -->
+        </div>
+        <div class="tabs" id="titleTabs">
+            <!-- Title tabs will be populated dynamically -->
+        </div>
+        <canvas id="metricsChart"></canvas>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            fetch('/api/metrics')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Fetched data:', data); // Debug: Check if data is fetched correctly
+
+                    const metricsByDate = {};
+                    const titles = new Set();
+
+                    function adjustMetric(url, value) {
+                        if (url.includes('amoremall')) {
+                            return Math.max(0, value - 3500); // -3.5초 보정 (3500ms)
+                        }
+                        return value;
+                    }
+
+                    Object.keys(data).forEach(url => {
+                        data[url].forEach(metric => {
+                            const date = new Date(metric.timestamp).toLocaleDateString('en-GB'); // 한국 표준시로 변환
+                            const title = metric.title;
+                            
+                            if (!metricsByDate[date]) {
+                                metricsByDate[date] = {};
+                            }
+                            if (!metricsByDate[date][title]) {
+                                metricsByDate[date][title] = [];
+                            }
+                            
+                            metricsByDate[date][title].push({
+                                ...metric,
+                                fcp: adjustMetric(url, metric.fcp),
+                                lcp: adjustMetric(url, metric.lcp),
+                                fmp: metric.fmp === 'N/A' ? null : adjustMetric(url, metric.fmp),
+                            });
+                            
+                            titles.add(title);
+                        });
+                    });
+
+                    // 날짜 탭 생성
+                    const dateTabsContainer = document.getElementById('dateTabs');
+                    const dates = Object.keys(metricsByDate);
+                    dates.forEach((date, index) => {
+                        const tabButton = document.createElement('button');
+                        tabButton.textContent = date;
+                        tabButton.className = index === 0 ? 'active' : '';
+                        tabButton.onclick = () => {
+                            loadTitleTabs(date);
+                            document.querySelectorAll('#dateTabs button').forEach(btn => btn.classList.remove('active'));
+                            tabButton.classList.add('active');
+                        };
+                        dateTabsContainer.appendChild(tabButton);
+                    });
+
+                    // 타이틀 탭 생성 및 차트 로드
+                    const titleTabsContainer = document.getElementById('titleTabs');
+
+                    function loadTitleTabs(date) {
+                        titleTabsContainer.innerHTML = ''; // 기존 타이틀 탭 제거
+                        const titles = Object.keys(metricsByDate[date]);
+                        titles.forEach((title, index) => {
+                            const tabButton = document.createElement('button');
+                            tabButton.textContent = title;
+                            tabButton.className = index === 0 ? 'active' : '';
+                            tabButton.onclick = () => {
+                                loadChart(date, title);
+                                document.querySelectorAll('#titleTabs button').forEach(btn => btn.classList.remove('active'));
+                                tabButton.classList.add('active');
+                            };
+                            titleTabsContainer.appendChild(tabButton);
+                        });
+
+                        // 초기 타이틀 탭 로드
+                        const initialTitle = titles[0];
+                        if (initialTitle) {
+                            loadChart(date, initialTitle);
+                        }
+                    }
+
+                    // 차트 로드 및 업데이트 함수
+                    let chartInstance = null;
+
+                    function loadChart(date, title) {
+                        const metrics = metricsByDate[date][title];
+                        const labels = metrics.map(metric => new Date(metric.timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Seoul' }));
+                        const fcpData = metrics.map(metric => metric.fcp);
+                        const lcpData = metrics.map(metric => metric.lcp);
+                        const fmpData = metrics.map(metric => metric.fmp);
+
+                        const ctx = document.getElementById('metricsChart').getContext('2d');
+
+                        // 기존 차트가 있으면 파괴
+                        if (chartInstance) {
+                            chartInstance.destroy();
+                        }
+
+                        // 새로운 차트 생성
+                        chartInstance = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    {
+                                        label: 'FCP',
+                                        data: fcpData,
+                                        borderColor: 'rgba(75, 192, 192, 1)',
+                                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                        fill: false,
+                                    },
+                                    {
+                                        label: 'LCP',
+                                        data: lcpData,
+                                        borderColor: 'rgba(153, 102, 255, 1)',
+                                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                                        fill: false,
+                                    },
+                                    {
+                                        label: 'FMP',
+                                        data: fmpData,
+                                        borderColor: 'rgba(255, 99, 132, 1)',
+                                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                        fill: false,
+                                    },
+                                ],
+                            },
+                            options: {
+                                responsive: true, // Ensure the chart is responsive
+                                scales: {
+                                    x: {
+                                        title: {
+                                            display: true,
+                                            text: 'Timestamp'
+                                        },
+                                        ticks: {
+                                            autoSkip: true, // Automatically skip labels to avoid overlap
+                                        }
+                                    },
+                                    y: {
+                                        title: {
+                                            display: true,
+                                            text: 'Value (ms)'
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    // 초기 날짜 및 타이틀 탭 로드
+                    const initialDate = dates[0];
+                    loadTitleTabs(initialDate);
+                    document.querySelectorAll('#dateTabs button')[0].click();
+
+                    // 현재 날짜를 업데이트 일자로 표시
+                    document.getElementById('updateDate').textContent = new Date().toLocaleDateString('en-GB');
+                })
+                .catch(error => {
+                    console.error('Error fetching metrics for graph:', error);
+                });
+        });
+    </script>
+</body>
+</html>

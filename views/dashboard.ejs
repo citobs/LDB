@@ -12,7 +12,7 @@
             margin: 0;
             padding: 0;
             color: #333;
-            text-align: center; /* 페이지 내 모든 텍스트를 중앙 정렬 */
+            text-align: center;
         }
 
         .container {
@@ -22,7 +22,8 @@
             background: rgba(255, 255, 255, 0.9);
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            text-align: left; /* 컨텐츠는 왼쪽 정렬 */
+            text-align: left;
+            position: relative;
         }
 
         h1 {
@@ -32,7 +33,7 @@
         }
 
         .search-container, .button-container {
-            text-align: center; /* 검색란과 버튼 중앙 정렬 */
+            text-align: center;
             margin-bottom: 20px;
         }
 
@@ -57,13 +58,13 @@
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            margin: 0 auto; /* 테이블 중앙 정렬 */
+            margin: 0 auto;
         }
 
         th, td {
             padding: 12px;
             border: 1px solid #ddd;
-            text-align: center; /* 숫자 및 텍스트 중앙 정렬 */
+            text-align: center;
         }
 
         th {
@@ -132,10 +133,27 @@
             margin: 20px 0;
             text-align: center;
         }
+
+        .info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 16px;
+            color: #666;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="info">
+            <p>개발 : 최인태</p>
+            <p>업데이트 일자: <span id="updateDate"></span></p>
+        </div>
         <h1>Lighthouse Metrics Dashboard</h1>
         <div class="search-container">
             <input type="text" id="searchInput" class="search-input" placeholder="Search by URL, Title, FCP, LCP, or FMP..." onkeyup="searchTable()">
@@ -149,14 +167,14 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>#</th>
-                            <th>First Contentful Paint (FCP)</th>
-                            <th>Largest Contentful Paint (LCP)</th>
-                            <th>First Meaningful Paint (FMP)</th>
+                            <th>측정 번호</th>
+                            <th>First Contentful Paint (FCP) (초)</th>
+                            <th>Largest Contentful Paint (LCP) (초)</th>
+                            <th>First Meaningful Paint (FMP) (초)</th>
                             <th>Timestamp</th>
-                            <th>FCP Change</th>
-                            <th>LCP Change</th>
-                            <th>FMP Change</th>
+                            <th>FCP Change (초)</th>
+                            <th>LCP Change (초)</th>
+                            <th>FMP Change (초)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -167,22 +185,31 @@
                             <% let fcpChange = 'N/A'; %>
                             <% let lcpChange = 'N/A'; %>
                             <% let fmpChange = 'N/A'; %>
-                            <% let fcpAdjustment = url.includes('amoremall') ? 4000 : 0; %>
-                            <% let adjustedFcp = (metric.fcp - fcpAdjustment).toFixed(2); %>
-                            <% let adjustedLcp = (metric.lcp - fcpAdjustment).toFixed(2); %>
+
+                            <% 
+                                // URL이 amoremall을 포함하는 경우 FCP와 LCP에 각각 3.5초, 4.8초 자동보정을 적용
+                                let fcpAdjustment = url.includes('amoremall') ? 3500 : 0; 
+                                let lcpAdjustment = url.includes('amoremall') ? 4800 : 0;
+                                let adjustedFcp = ((metric.fcp - fcpAdjustment) / 1000).toFixed(2);
+                                let adjustedLcp = ((metric.lcp - lcpAdjustment) / 1000).toFixed(2);
+                                let adjustedFmp = metric.fmp !== 'N/A' ? (metric.fmp / 1000).toFixed(2) : 'N/A';
+                            %>
+
                             <% if (previousMetric) { %>
-                                <% let previousFcpAdjustment = url.includes('amoremall') ? 4000 : 0; %>
-                                <% let previousAdjustedFcp = (previousMetric.fcp - previousFcpAdjustment).toFixed(2); %>
-                                <% let previousAdjustedLcp = (previousMetric.lcp - previousFcpAdjustment).toFixed(2); %>
+                                <% let previousFcpAdjustment = url.includes('amoremall') ? 3500 : 0; %>
+                                <% let previousLcpAdjustment = url.includes('amoremall') ? 4800 : 0; %>
+                                <% let previousAdjustedFcp = ((previousMetric.fcp - previousFcpAdjustment) / 1000).toFixed(2); %>
+                                <% let previousAdjustedLcp = ((previousMetric.lcp - previousLcpAdjustment) / 1000).toFixed(2); %>
                                 <% fcpChange = (adjustedFcp - previousAdjustedFcp).toFixed(2); %>
                                 <% lcpChange = (adjustedLcp - previousAdjustedLcp).toFixed(2); %>
-                                <% fmpChange = metric.fmp !== 'N/A' && previousMetric.fmp !== 'N/A' ? (metric.fmp - previousMetric.fmp).toFixed(2) : 'N/A'; %>
+                                <% fmpChange = metric.fmp !== 'N/A' && previousMetric.fmp !== 'N/A' ? ((metric.fmp - previousMetric.fmp) / 1000).toFixed(2) : 'N/A'; %>
                             <% } %>
+
                             <tr data-title="<%= metrics[0].title %>">
                                 <td><%= sequence++ %></td>
                                 <td><%= adjustedFcp %></td>
                                 <td><%= adjustedLcp %></td>
-                                <td><%= metric.fmp !== 'N/A' ? metric.fmp.toFixed(2) : 'N/A' %></td>
+                                <td><%= adjustedFmp %></td>
                                 <td><%= new Date(metric.timestamp).toLocaleString() %></td>
                                 <td class="<%= fcpChange === 'N/A' ? 'no-change' : (fcpChange > 0 ? 'increase' : 'decrease') %>">
                                     <%= fcpChange === 'N/A' ? 'N/A' : (fcpChange > 0 ? '+' + fcpChange : fcpChange) %>
@@ -230,48 +257,52 @@
         }
 
         function downloadCSV() {
-            // 현재 날짜와 시간 가져오기
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0'); // 월은 0부터 시작하므로 1을 더함
-            const day = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            const timestamp = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
-
-            // 테이블의 모든 행을 가져옵니다.
             const rows = [
-                ['#', 'Title', 'First Contentful Paint (FCP)', 'Largest Contentful Paint (LCP)', 'First Meaningful Paint (FMP)', 'Timestamp', 'FCP Change', 'LCP Change', 'FMP Change'],
+                ['#', 'Title', 'First Contentful Paint (FCP) (초)', 'Largest Contentful Paint (LCP) (초)', 'First Meaningful Paint (FMP) (초)', 'Timestamp', 'FCP Change (초)', 'LCP Change (초)', 'FMP Change (초)'],
                 ...Array.from(document.querySelectorAll('tbody tr')).map(tr => {
                     const cells = Array.from(tr.getElementsByTagName('td'));
                     const title = tr.getAttribute('data-title') || '';
                     return [
                         cells[0]?.textContent.trim() || '', // #
                         title, // Title
-                        cells[1]?.textContent.trim() || '', // First Contentful Paint (FCP)
-                        cells[2]?.textContent.trim() || '', // Largest Contentful Paint (LCP)
-                        cells[3]?.textContent.trim() || '', // First Meaningful Paint (FMP)
+                        cells[1]?.textContent.trim() || '', // First Contentful Paint (FCP) (초)
+                        cells[2]?.textContent.trim() || '', // Largest Contentful Paint (LCP) (초)
+                        cells[3]?.textContent.trim() || '', // First Meaningful Paint (FMP) (초)
                         cells[4]?.textContent.trim() || '', // Timestamp
-                        cells[5]?.textContent.trim() || '', // FCP Change
-                        cells[6]?.textContent.trim() || '', // LCP Change
-                        cells[7]?.textContent.trim() || '', // FMP Change
+                        cells[5]?.textContent.trim() || '', // FCP Change (초)
+                        cells[6]?.textContent.trim() || '', // LCP Change (초)
+                        cells[7]?.textContent.trim() || '', // FMP Change (초)
                     ];
                 })
             ];
 
-            // CSV 문자열 생성
             const csvContent = rows.map(row => row.join(",")).join("\n");
 
-            // CSV 데이터를 데이터 URI 형식으로 변환
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+
+            const filename = `lighthouse_metrics_${year}-${month}-${day}_${hours}-${minutes}-${seconds}.csv`;
+
             const encodedUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`;
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `lighthouse_metrics_${timestamp}.csv`);
+            link.setAttribute("download", filename);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const now = new Date();
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            const dateStr = now.toLocaleDateString('ko-KR', options);
+            document.getElementById('updateDate').textContent = dateStr;
+        });
     </script>
 </body>
 </html>

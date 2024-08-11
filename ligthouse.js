@@ -1,16 +1,15 @@
-// lighthouse.js
 import mongoose from './db.js';
 import lighthouse from 'lighthouse';
-import chromeLauncher from 'chrome-launcher';
+import { launch } from 'chrome-launcher';
 import Metric from './models/Metrics.js';
 import cron from 'node-cron';
 
 // 측정할 URL 목록과 제목
 const urlsWithTitles = [
-    { url: 'https://www.amoremall.com/kr/ko/display/main', title: 'Main' },
-    { url: 'https://www.google.com', title: 'Google' },
+    { url: 'https://www.amoremall.com/kr/ko/display/main', title: 'amore_pc_Main' },
+    { url: 'https://www.amoremall.com/kr/ko/product/detail?onlineProdSn=61281', title: 'amore_pc_pro_detail' },
     { url: 'https://www.github.com', title: 'GitHub' },
-    { url: 'https://www.amoremall.com/kr/ko/display/search?query=1234', title: 'Search' },
+    { url: 'https://www.amoremall.com/kr/ko/display/search?query=%EC%84%A4%ED%99%94%EC%88%98', title: 'amore_pc_Search' },
     // 여기에 추가적인 URL과 제목을 넣으세요
 ];
 
@@ -27,25 +26,42 @@ mongoose.connection.on('connected', () => {
 
     // 각 URL에 대해 Lighthouse 성능 테스트를 실행하는 함수
     async function runLighthouse(url, title) {
-        const chrome = await chromeLauncher.launch({ chromeFlags: ['--headless'] });
-        const options = { logLevel: 'info', output: 'json', port: chrome.port };
-        const runnerResult = await lighthouse(url, options);
+        const chrome = await launch({ chromeFlags: ['--headless'] });
+        const options = {
+            logLevel: 'info',
+            output: 'json',
+            port: chrome.port,
+            emulatedFormFactor: 'desktop' // 데스크탑 모드 설정
+        };
 
-        const report = runnerResult.lhr;
+        try {
+            const runnerResult = await lighthouse(url, options);
+            const report = runnerResult.lhr;
 
-        const metrics = new Metric({
-            url: report.finalUrl,
-            title: title, // 제목 추가
-            fcp: report.audits['first-contentful-paint'].numericValue,
-            lcp: report.audits['largest-contentful-paint'].numericValue,
-            fmp: report.audits['first-meaningful-paint'] ? report.audits['first-meaningful-paint'].numericValue : 'N/A',
-        });
+            // 모든 주요 메트릭을 포함하여 데이터베이스에 저장
+            const metrics = new Metric({
+                url: report.finalUrl,
+                title: title,
+                fcp: report.audits['first-contentful-paint'].numericValue,
+                lcp: report.audits['largest-contentful-paint'].numericValue,
+                fmp: report.audits['first-meaningful-paint'] ? report.audits['first-meaningful-paint'].numericValue : 'N/A',
+                tti: report.audits['interactive'].numericValue,
+                si: report.audits['speed-index'].numericValue,
+                tbt: report.audits['total-blocking-time'].numericValue,
+                cls: report.audits['cumulative-layout-shift'].numericValue,
+                ttfb: report.audits['server-response-time'].numericValue,
+                timestamp: new Date(),
+            });
 
-        await metrics.save();
+            await metrics.save();
 
-        console.log(`메트릭이 성공적으로 저장되었습니다: ${url}`);
+            console.log(`메트릭이 성공적으로 저장되었습니다: ${url}`);
 
-        await chrome.kill();
+        } catch (error) {
+            console.error(`Lighthouse 테스트 실패: ${url}`, error);
+        } finally {
+            await chrome.kill();
+        }
     }
 
     // 10분마다 runAllTests 함수 실행
